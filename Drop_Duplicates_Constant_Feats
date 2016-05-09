@@ -1,0 +1,77 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from time import time
+
+raw_train = pd.read_csv("train.csv")
+raw_test = pd.read_csv("test.csv")
+df_target = pd.DataFrame(raw_train["TARGET"])
+
+train_ID = raw_train["ID"]
+test_ID = raw_test["ID"]
+
+raw_train.drop(["ID", "TARGET"], axis = 1, inplace = True)
+raw_test.drop(["ID"], axis = 1, inplace = True)
+
+df_combo = pd.concat([raw_train, raw_test], axis = 0, ignore_index = True)
+coln = df_combo.columns
+data_types = df_combo.dtypes.unique()
+mask = df_combo.dtypes == data_types[0]
+Feat_int = coln[mask]
+Feat_float = list(set(coln).difference(set(Feat_int)))
+
+df_combo_floats = df_combo[Feat_float]
+df_combo_ints = df_combo[Feat_int]
+
+start = time()
+print("Constant dropping started")
+def constt_dropper(df):
+    colns = df.columns
+    constt_list = []
+    for j in colns:
+        if len(df[j].unique()) == 1:
+            constt_list.append(j)
+            print(j)
+            
+    return constt_list
+    
+constt_feat_ints = constt_dropper(df_combo_ints)
+df_combo_ints = df_combo_ints.drop(constt_feat_ints, axis = 1)
+
+constt_feat_floats = constt_dropper(df_combo_floats)
+df_combo_floats = df_combo_floats.drop(constt_feat_floats, axis = 1)
+
+print("Constant dropping ended")
+print(time() - start)
+midl = time()
+print("Duplicate dropping started")
+
+def dupl_dropper(df):
+    coln = df.columns
+    dupl = []
+
+    for j in range(len(coln)):
+        for k in range(j+1, len(coln)):
+            if dupl.__contains__(k) == False:
+                c1 = coln[j]
+                c2 = coln[k]
+                mask = df[c1] == df[c2]
+                emp_full = df[mask]
+                #print(len(emp_full))
+                if len(emp_full) == df.shape[0]:
+                    dupl.append(c2)
+    
+    return dupl
+
+dupl_feat_ints = dupl_dropper(df_combo_ints)    
+df_combo_ints = df_combo_ints.drop(dupl_feat_ints, axis = 1)
+
+dupl_feat_floats = dupl_dropper(df_combo_floats)    
+df_combo_floats = df_combo_floats.drop(dupl_feat_floats, axis = 1)
+print("Duplicate dropping ended")
+print(time() - midl)
+
+Feats_to_drop = constt_feat_ints + constt_feat_floats + dupl_feat_ints + dupl_feat_floats
+Feats_to_drop = pd.DataFrame(Feats_to_drop)
+Feats_to_drop.to_csv("Dropped_vars.csv")
